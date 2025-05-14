@@ -5,7 +5,7 @@
 ## Übersicht
 
 *   **VM:** Soul
-*   **Plattform:** [HackMyVM](https://hackmyvm.eu/machines/machine.php?vm=Soul)
+*   **Plattform:** HackMyVM (https://hackmyvm.eu/machines/machine.php?vm=Soul)
 *   **Schwierigkeit:** Hard
 *   **Autor der VM:** DarkSpirit
 *   **Datum des Writeups:** 17. Oktober 2022
